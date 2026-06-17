@@ -1,0 +1,1405 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF 智慧解析比賽報名系統 MVP</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    :root {
+      --navy: #12353f;
+      --navy-2: #1d4b59;
+      --bg: #f4f7f9;
+      --bg-warm: #fff7ed;
+      --card: #ffffff;
+      --line: #d8e1e7;
+      --line-strong: #b9c9d3;
+      --text: #172126;
+      --muted: #64727b;
+      --green: #11946a;
+      --green-dark: #0b7151;
+      --red: #d74444;
+      --orange: #e68a00;
+      --blue: #2f6fdb;
+      --focus: rgba(47, 111, 219, .28);
+      --shadow: 0 14px 32px rgba(18, 53, 63, .1);
+      --shadow-soft: 0 6px 18px rgba(18, 53, 63, .07);
+    }
+
+    * { box-sizing: border-box; }
+    main, .card, .grid > *, .line-bubble, .summary-box {
+      min-width: 0;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+      background:
+        radial-gradient(circle at 16% 0%, rgba(255, 247, 237, .95), transparent 28rem),
+        linear-gradient(180deg, #edf5f5 0, var(--bg) 18rem);
+      color: var(--text);
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+    p, code, .card, .pill {
+      overflow-wrap: anywhere;
+    }
+    button, input, select, textarea {
+      font: inherit;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 11px 15px;
+      cursor: pointer;
+      background: linear-gradient(180deg, var(--navy-2), var(--navy));
+      color: #fff;
+      font-weight: 700;
+      min-width: 0;
+      box-shadow: 0 8px 16px rgba(18, 53, 63, .16);
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 20px rgba(18, 53, 63, .18);
+    }
+    button:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: 0 5px 10px rgba(18, 53, 63, .14);
+    }
+    button.secondary {
+      background: #fff;
+      color: var(--navy);
+      border: 1px solid var(--line-strong);
+      box-shadow: var(--shadow-soft);
+    }
+    button.green { background: linear-gradient(180deg, #17a878, var(--green-dark)); }
+    button.orange { background: linear-gradient(180deg, #f0a11b, var(--orange)); }
+    button.red { background: linear-gradient(180deg, #e65a5a, var(--red)); }
+    button.small { padding: 7px 10px; font-size: 13px; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    label {
+      display: block;
+      margin: 12px 0 6px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 12px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 4px var(--focus);
+    }
+    input[type="file"] {
+      background: #f8fbfc;
+      border-style: dashed;
+    }
+    select[multiple] {
+      min-height: 104px;
+    }
+    textarea { min-height: 96px; resize: vertical; }
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    .sidebar {
+      background: rgba(18, 53, 63, .96);
+      backdrop-filter: blur(14px);
+      color: #fff;
+      padding: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 8px 24px rgba(18, 53, 63, .18);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+      letter-spacing: 0;
+      min-width: 0;
+    }
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #18b981, #f2a922);
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 10px 20px rgba(0,0,0,.16);
+      flex: 0 0 auto;
+    }
+    .page-badge {
+      background: rgba(255,255,255,.12);
+      color: #f7fbfc;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .coach-menu {
+      position: relative;
+    }
+    .coach-menu summary {
+      list-style: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.12);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .coach-menu summary::-webkit-details-marker { display: none; }
+    .coach-menu-panel {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      width: 190px;
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+    .coach-menu-panel button {
+      width: 100%;
+      text-align: left;
+      background: #fff;
+      color: var(--navy);
+      border: 1px solid transparent;
+      box-shadow: none;
+    }
+    .coach-menu-panel button.active {
+      background: var(--navy);
+      color: #fff;
+    }
+    main {
+      padding: 18px;
+      max-width: 1240px;
+      width: 100%;
+      min-width: 0;
+      margin: 0 auto;
+    }
+    .view { display: none; }
+    .view.active { display: block; }
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+    .grid.two { grid-template-columns: 1fr; }
+    .grid.three { grid-template-columns: 1fr; }
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(216, 225, 231, .92);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .card h2, .card h3 {
+      margin: 0 0 12px;
+      letter-spacing: 0;
+      color: #102c35;
+      line-height: 1.25;
+    }
+    .muted { color: var(--muted); }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .between {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .between > * {
+      min-width: 0;
+    }
+    .between button {
+      white-space: normal;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 26px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      background: #eef4f7;
+      color: var(--navy);
+      border: 1px solid transparent;
+    }
+    .pill.green { background: #ddf6eb; color: #08734f; }
+    .pill.red { background: #ffe3e3; color: #ad2828; }
+    .pill.orange { background: #fff1d6; color: #8d5200; }
+    .pill.blue { background: #e0ecff; color: #2459b4; }
+    .tabs {
+      display: flex;
+      overflow-x: auto;
+      gap: 8px;
+      padding: 4px 0 10px;
+      margin-bottom: 10px;
+    }
+    .tabs button {
+      flex: 0 0 auto;
+      background: #fff;
+      color: var(--navy);
+      white-space: nowrap;
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+    .tabs button.active {
+      background: var(--navy);
+      color: #fff;
+      border-color: var(--navy);
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .summary-box {
+      max-height: 270px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fbfc;
+      padding: 12px;
+      white-space: pre-wrap;
+      font-size: 13px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      background: #f4f8fa;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tbody tr:hover {
+      background: #fbf7ef;
+    }
+    .line-form {
+      background:
+        linear-gradient(135deg, rgba(19, 116, 105, .14), rgba(242, 169, 34, .16)),
+        #eef6f5;
+      border: 1px solid #cbdedb;
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .line-bubble {
+      background: #fff;
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(216, 225, 231, .9);
+    }
+    .check-list {
+      display: grid;
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fdfefe;
+    }
+    .check-item input { width: auto; }
+    .upload-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fdfefe;
+    }
+    .upload-item input {
+      margin-top: 6px;
+    }
+    .upload-hint {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .result-panel {
+      border-left: 4px solid var(--green);
+      background: linear-gradient(90deg, #ecfff6, #fff);
+    }
+    .admin-layout {
+      display: grid;
+      gap: 16px;
+    }
+    .stat {
+      border-left: 4px solid var(--blue);
+      background: linear-gradient(180deg, #fff, #f7fbff);
+    }
+    .stat strong {
+      font-size: 30px;
+      display: block;
+      color: var(--navy);
+      line-height: 1.1;
+      margin-top: 4px;
+    }
+    .notice-output {
+      min-height: 180px;
+      white-space: pre-wrap;
+      background: #f8fbfc;
+    }
+    .field-health {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--orange);
+      border-radius: 8px;
+      background: #fffaf0;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+    .field-health.good {
+      border-left-color: var(--green);
+      background: #f0fff6;
+    }
+    .field-health ul {
+      margin: 8px 0 0;
+      padding-left: 20px;
+    }
+    .edit-banner {
+      border-left: 4px solid var(--orange);
+      background: #fffaf0;
+    }
+    .hidden { display: none !important; }
+
+    @media (max-width: 520px) {
+      .sidebar {
+        align-items: flex-start;
+        padding: 12px 14px;
+      }
+      main {
+        width: calc(100vw - 32px);
+        margin-left: 16px;
+        margin-right: 16px;
+        padding-left: 0;
+        padding-right: 0;
+      }
+      .brand {
+        max-width: 62%;
+        align-items: flex-start;
+      }
+      .brand .muted { display: none; }
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+      }
+      .page-badge { display: none; }
+      .coach-menu summary {
+        padding: 9px 11px;
+      }
+      .coach-menu-panel {
+        width: min(220px, calc(100vw - 28px));
+      }
+      .card,
+      .line-bubble {
+        padding: 14px;
+      }
+      .tabs button {
+        padding: 9px 12px;
+      }
+      .row button {
+        flex: 1 1 100%;
+      }
+      .between button {
+        width: 100%;
+      }
+      .between .pill {
+        display: none;
+      }
+      th, td {
+        padding: 10px;
+      }
+    }
+
+    @media (min-width: 900px) {
+      .sidebar {
+        padding: 14px 24px;
+      }
+      main { padding: 24px; }
+      .grid.two { grid-template-columns: 1fr 1fr; }
+      .grid.three { grid-template-columns: repeat(3, 1fr); }
+      .admin-layout { grid-template-columns: 280px 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">跆</div>
+        <div>比賽活動報名<br><span class="muted" style="color:#b8c9d8;">家長報名表</span></div>
+      </div>
+      <div class="page-badge">比賽活動報名</div>
+      <details class="coach-menu">
+        <summary>教練功能</summary>
+        <div class="coach-menu-panel">
+          <button class="view-switch active" data-view="parentView">比賽活動報名</button>
+          <button class="view-switch" data-view="parserView">PDF 解析</button>
+          <button class="view-switch" data-view="adminView">教練後台</button>
+        </div>
+      </details>
+    </aside>
+
+    <main>
+      <section id="parserView" class="view">
+        <div class="grid two">
+          <div class="card">
+            <div class="between">
+              <h2>PDF 上傳</h2>
+              <span class="pill blue">pdf.js</span>
+            </div>
+            <input id="pdfInput" type="file" accept="application/pdf">
+            <p class="muted">上傳競賽規程 PDF 後，系統會擷取文字。第一版使用模擬 AI 解析，未來可在 <code>parseWithAIProvider()</code> 串接 OpenAI API 或 Claude API。</p>
+            <div class="row">
+              <button id="parsePdfBtn" class="secondary">擷取 PDF 文字</button>
+              <button id="mockParseBtn">開始解析</button>
+              <button id="loadDemoBtn" class="orange">載入示範資料</button>
+            </div>
+          </div>
+          <div class="card">
+            <h2>文字摘要</h2>
+            <div id="pdfSummary" class="summary-box">尚未上傳 PDF。可先按「載入示範資料」體驗完整流程。</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <div class="between">
+            <h2>解析結果確認</h2>
+            <button id="createEventBtn" class="green">建立報名活動</button>
+          </div>
+          <div class="tabs" id="resultTabs">
+            <button class="active" data-tab="basicTab">基本資料</button>
+            <button data-tab="sparringTab">對練量級</button>
+            <button data-tab="poomsaeTab">品勢組別</button>
+            <button data-tab="speedTab">競速踢擊</button>
+            <button data-tab="feeTab">收費標準</button>
+            <button data-tab="attachmentTab">附件需求</button>
+          </div>
+          <div id="basicTab" class="tab-panel active"></div>
+          <div id="sparringTab" class="tab-panel"></div>
+          <div id="poomsaeTab" class="tab-panel"></div>
+          <div id="speedTab" class="tab-panel"></div>
+          <div id="feeTab" class="tab-panel"></div>
+          <div id="attachmentTab" class="tab-panel"></div>
+        </div>
+      </section>
+
+      <section id="parentView" class="view active">
+        <div class="grid two">
+          <div class="card">
+            <h2>選擇活動</h2>
+            <select id="parentEventSelect"></select>
+            <p class="muted" id="parentEventInfo"></p>
+          </div>
+          <div class="card">
+            <h2>目前試算</h2>
+            <div class="row">
+              <span class="pill blue" id="suggestedWeightPill">量級：待輸入</span>
+              <span class="pill green" id="feePill">費用：0 元</span>
+            </div>
+          </div>
+        </div>
+        <div class="line-form" style="margin-top:14px;">
+          <form id="registrationForm" class="line-bubble">
+            <h2>家長手機報名表</h2>
+            <div class="grid two">
+              <div><label>學生姓名</label><input name="studentName" required></div>
+              <div><label>性別</label><select name="gender"><option>男</option><option>女</option></select></div>
+              <div><label>生日</label><input name="birthday" type="date" required></div>
+              <div><label>學校</label><input name="school" required></div>
+              <div><label>年級</label><select name="grade"><option>幼兒園</option><option>國小低年級</option><option>國小中年級</option><option>國小高年級</option><option>國中</option><option>高中</option></select></div>
+              <div><label>目前帶級</label><input name="belt" placeholder="例：紅黑帶、1 段"></div>
+              <div><label>報名項目</label><select name="items" id="itemSelect" multiple size="3"></select></div>
+              <div><label>組別</label><select name="group" id="groupSelect"></select></div>
+              <div><label>體重</label><input name="weight" type="number" min="0" step="0.1" placeholder="公斤"></div>
+              <div><label>家長姓名</label><input name="parentName" required></div>
+              <div><label>家長電話</label><input name="parentPhone" type="tel" required></div>
+            </div>
+            <label>附件上傳</label>
+            <p class="muted">可上傳照片、級證、段證、切結書、繳費證明等資料。MVP 會暫存在本機瀏覽器 localStorage，正式版需改接雲端檔案儲存。</p>
+            <div id="attachmentChecks" class="check-list"></div>
+            <label class="check-item"><input name="consent" type="checkbox" required> 我已確認競賽規程並同意報名</label>
+            <div class="row" style="margin-top:12px;">
+              <button class="green" type="submit">送出報名</button>
+              <button class="secondary" type="reset">清除</button>
+            </div>
+          </form>
+        </div>
+        <div id="successPanel" class="card result-panel hidden" style="margin-top:14px;"></div>
+      </section>
+
+      <section id="adminView" class="view">
+        <div id="coachLoginPanel" class="card">
+          <h2>教練登入</h2>
+          <p class="muted">預設密碼：1234。這是 MVP 前端密碼，正式版需改成後端驗證。</p>
+          <label>教練密碼</label>
+          <input id="coachPasswordInput" type="password" autocomplete="current-password">
+          <button id="coachLoginBtn" style="margin-top:10px;">登入後台</button>
+        </div>
+        <div id="adminContent" class="admin-layout hidden">
+          <div class="grid">
+            <div class="card">
+              <div class="between">
+                <h2>教練權限</h2>
+                <button id="coachLogoutBtn" class="secondary">登出</button>
+              </div>
+              <label>設定新密碼</label>
+              <input id="newCoachPassword" type="password" autocomplete="new-password" placeholder="至少 4 碼">
+              <button id="changeCoachPasswordBtn" class="small orange" style="margin-top:10px;">更新密碼</button>
+            </div>
+            <div class="card">
+              <h2>收款設定</h2>
+              <label>匯款帳號</label>
+              <input id="paymentBankAccount" placeholder="例：銀行代碼 000 / 帳號 123456789 / 戶名 王小明">
+              <label>LINE Pay 連結或 ID</label>
+              <input id="paymentLinePay" placeholder="例：https://line.me/R/pay/... 或 LINE ID">
+              <label>繳費備註</label>
+              <textarea id="paymentNote" placeholder="例：轉帳後請上傳繳費證明，備註選手姓名。"></textarea>
+              <button id="savePaymentSettingsBtn" class="small green" style="margin-top:10px;">儲存收款設定</button>
+            </div>
+            <div class="card">
+              <h2>活動列表</h2>
+              <div id="eventList"></div>
+            </div>
+            <div class="card">
+              <h2>LINE 通知產生器</h2>
+              <label>通知類型</label>
+              <select id="noticeType">
+                <option value="success">報名成功通知</option>
+                <option value="unpaid">未繳費提醒</option>
+                <option value="missing">附件缺漏提醒</option>
+                <option value="gear">比賽裝備提醒</option>
+                <option value="weigh">過磅提醒</option>
+              </select>
+              <button id="generateNoticeBtn" style="margin-top:10px;">產生文字</button>
+              <textarea id="noticeOutput" class="notice-output" readonly></textarea>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="grid three">
+              <div class="card stat"><span class="muted">總報名</span><strong id="statTotal">0</strong></div>
+              <div class="card stat"><span class="muted">未繳費</span><strong id="statUnpaid">0</strong></div>
+              <div class="card stat"><span class="muted">附件缺漏</span><strong id="statMissing">0</strong></div>
+            </div>
+            <div class="card">
+              <div class="between">
+                <h2>報名名單</h2>
+                <button id="exportCsvBtn" class="secondary">匯出 CSV</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>學生</th><th>項目</th><th>組別</th><th>量級</th><th>費用</th><th>繳費</th><th>附件</th><th>審核</th><th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="registrationRows"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+
+    const STORAGE_KEYS = {
+      events: "pdfSmartRegistration.events",
+      registrations: "pdfSmartRegistration.registrations",
+      activeEventId: "pdfSmartRegistration.activeEventId",
+      coachPassword: "pdfSmartRegistration.coachPassword",
+      coachSession: "pdfSmartRegistration.coachSession",
+      paymentSettings: "pdfSmartRegistration.paymentSettings"
+    };
+
+    const demoParsedData = {
+      id: "event-2026-newtaipei-speaker-cup",
+      name: "2026 年新北議長盃全國跆拳道錦標賽",
+      date: "115 年 7 月 16 日至 7 月 19 日",
+      location: "新北市新莊體育館",
+      address: "新北市新莊區中華路一段 75 號",
+      registrationDeadline: "115 年 6 月 26 日 23:59",
+      items: ["對練", "品勢", "競速踢擊"],
+      weightClasses: [
+        { group: "國小低年級男子組", gender: "男", label: "23 公斤以下", min: 0, max: 23 },
+        { group: "國小低年級男子組", gender: "男", label: "23-25 公斤", min: 23.01, max: 25 },
+        { group: "國小低年級男子組", gender: "男", label: "25-27 公斤", min: 25.01, max: 27 },
+        { group: "國小低年級男子組", gender: "男", label: "27 公斤以上", min: 27.01, max: 999 },
+        { group: "國小低年級女子組", gender: "女", label: "21 公斤以下", min: 0, max: 21 },
+        { group: "國小低年級女子組", gender: "女", label: "21-23 公斤", min: 21.01, max: 23 },
+        { group: "國小低年級女子組", gender: "女", label: "23-25 公斤", min: 23.01, max: 25 },
+        { group: "國小低年級女子組", gender: "女", label: "25 公斤以上", min: 25.01, max: 999 },
+        { group: "國小高年級男子組", gender: "男", label: "34 公斤以下", min: 0, max: 34 },
+        { group: "國小高年級男子組", gender: "男", label: "34-37 公斤", min: 34.01, max: 37 },
+        { group: "國小高年級男子組", gender: "男", label: "37-40 公斤", min: 37.01, max: 40 },
+        { group: "國小高年級男子組", gender: "男", label: "40 公斤以上", min: 40.01, max: 999 },
+        { group: "青少年男子電子護具組", gender: "男", label: "45 公斤以下", min: 0, max: 45 },
+        { group: "青少年男子電子護具組", gender: "男", label: "45-48 公斤", min: 45.01, max: 48 },
+        { group: "青少年男子電子護具組", gender: "男", label: "48-51 公斤", min: 48.01, max: 51 },
+        { group: "青少年男子電子護具組", gender: "男", label: "51 公斤以上", min: 51.01, max: 999 },
+        { group: "青少年女子電子護具組", gender: "女", label: "42 公斤以下", min: 0, max: 42 },
+        { group: "青少年女子電子護具組", gender: "女", label: "42-44 公斤", min: 42.01, max: 44 },
+        { group: "青少年女子電子護具組", gender: "女", label: "44-46 公斤", min: 44.01, max: 46 },
+        { group: "青少年女子電子護具組", gender: "女", label: "46 公斤以上", min: 46.01, max: 999 }
+      ],
+      poomsaeGroups: ["國小低年級個人組", "國小中年級個人組", "國小高年級個人組", "青少年個人組", "青年個人組", "混合雙人", "團體三人組"],
+      speedKickGroups: ["國小低年級男子組", "國小低年級女子組", "國小中年級男子組", "國小中年級女子組", "國小高年級男子組", "國小高年級女子組"],
+      feeRules: [
+        { id: "sparring_traditional", item: "對練", label: "國小組、青少年及青年色帶組傳統護具", amount: 600, match: ["國小", "色帶", "傳統"] },
+        { id: "sparring_electronic", item: "對練", label: "青少年及青年電子護具組", amount: 1000, match: ["電子護具"] },
+        { id: "poomsae_single", item: "品勢", label: "品勢個人組", amount: 500, match: ["個人"] },
+        { id: "poomsae_pair", item: "品勢", label: "混合雙人", amount: 800, match: ["混合雙人"] },
+        { id: "poomsae_team", item: "品勢", label: "團體三人組", amount: 1000, match: ["團體三人"] },
+        { id: "speed_kick", item: "競速踢擊", label: "競速踢擊", amount: 500, match: ["競速踢擊"] }
+      ],
+      attachments: ["選手切結書", "家長或監護人簽名", "段級證影本", "繳費證明", "指導教練確認單，選拔組需要"],
+      aiProviderReady: false
+    };
+
+    let extractedText = "";
+    let parsedData = structuredClone(demoParsedData);
+    let editingRegistrationId = null;
+
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+    function getEvents() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.events) || "[]");
+    }
+    function setEvents(events) {
+      localStorage.setItem(STORAGE_KEYS.events, JSON.stringify(events));
+    }
+    function getRegistrations() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.registrations) || "[]");
+    }
+    function setRegistrations(rows) {
+      localStorage.setItem(STORAGE_KEYS.registrations, JSON.stringify(rows));
+    }
+    function getActiveEvent() {
+      const events = getEvents();
+      const activeId = localStorage.getItem(STORAGE_KEYS.activeEventId);
+      return events.find(event => event.id === activeId) || events[0] || parsedData;
+    }
+    function uid(prefix) {
+      return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+    function createRegistrationNumber() {
+      const date = new Date();
+      const stamp = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+      return `REG-${stamp}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    }
+
+    function parseLines(value) {
+      return value.split(/\n/).map(v => v.trim()).filter(Boolean);
+    }
+    function toLines(value) {
+      return Array.isArray(value) ? value.join("\n") : "";
+    }
+    function currency(value) {
+      return `${Number(value || 0).toLocaleString("zh-TW")} 元`;
+    }
+    function getPaymentSettings() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.paymentSettings) || "{}");
+    }
+    function setPaymentSettings(settings) {
+      localStorage.setItem(STORAGE_KEYS.paymentSettings, JSON.stringify(settings));
+    }
+    function formatPaymentLines(settings = getPaymentSettings()) {
+      const lines = [];
+      if (settings.bankAccount) lines.push(`匯款帳號：${settings.bankAccount}`);
+      if (settings.linePay) lines.push(`LINE Pay：${settings.linePay}`);
+      if (settings.note) lines.push(`備註：${settings.note}`);
+      return lines;
+    }
+    function renderPaymentInfoHtml() {
+      const lines = formatPaymentLines();
+      if (!lines.length) return `<p class="muted">教練尚未設定匯款帳號或 LINE Pay，請等候教練通知。</p>`;
+      return `<ul>${lines.map(line => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`;
+    }
+    function renderPaymentSettingsForm() {
+      const settings = getPaymentSettings();
+      $("#paymentBankAccount").value = settings.bankAccount || "";
+      $("#paymentLinePay").value = settings.linePay || "";
+      $("#paymentNote").value = settings.note || "";
+    }
+    function getCoachPassword() {
+      return localStorage.getItem(STORAGE_KEYS.coachPassword) || "1234";
+    }
+    function isCoachLoggedIn() {
+      return sessionStorage.getItem(STORAGE_KEYS.coachSession) === "yes";
+    }
+    function setCoachLoggedIn(value) {
+      if (value) sessionStorage.setItem(STORAGE_KEYS.coachSession, "yes");
+      else sessionStorage.removeItem(STORAGE_KEYS.coachSession);
+      renderCoachAccess();
+    }
+    function renderCoachAccess() {
+      const loggedIn = isCoachLoggedIn();
+      $("#coachLoginPanel").classList.toggle("hidden", loggedIn);
+      $("#adminContent").classList.toggle("hidden", !loggedIn);
+    }
+    function normalizeUploadRequirements(active) {
+      const base = ["選手照片", "級證或段證影本", "選手切結書"];
+      const parsed = active.attachments || [];
+      const merged = [...base, ...parsed].filter(item => !item.includes("家長或監護人簽名"));
+      return [...new Set(merged)];
+    }
+    function safeFileId(label) {
+      return label.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, "_");
+    }
+    function isPaymentAttachment(label) {
+      return label.includes("繳費");
+    }
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+    async function collectUploadedAttachments(form, requiredAttachments) {
+      const uploads = [];
+      for (const label of requiredAttachments) {
+        const input = [...form.querySelectorAll("[data-upload-label]")].find(field => field.dataset.uploadLabel === label);
+        const file = input?.files?.[0];
+        if (!file) continue;
+        if (file.size > 2 * 1024 * 1024) {
+          throw new Error(`${label} 檔案超過 2MB，MVP localStorage 版本請先壓縮後再上傳。`);
+        }
+        uploads.push({
+          label,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          dataUrl: await fileToDataUrl(file)
+        });
+      }
+      return uploads;
+    }
+
+    async function extractPdfText(file) {
+      if (!window.pdfjsLib) throw new Error("pdf.js 尚未載入，請確認網路或 CDN 設定。");
+      const buffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+      const pages = [];
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+        const page = await pdf.getPage(pageNumber);
+        const content = await page.getTextContent();
+        const text = content.items.map(item => item.str).join(" ");
+        pages.push(`第 ${pageNumber} 頁\n${text}`);
+      }
+      return pages.join("\n\n");
+    }
+
+    async function parseWithAIProvider(text) {
+      // Future adapter point:
+      // return await fetch("/api/parse-competition", { method: "POST", body: JSON.stringify({ text }) });
+      return mockAIParse(text);
+    }
+
+    function mockAIParse(text) {
+      const data = structuredClone(demoParsedData);
+      data.id = uid("event");
+      data.extractionConfidence = {
+        name: text ? 0.92 : 0.74,
+        date: text ? 0.86 : 0.72,
+        location: text ? 0.84 : 0.7,
+        registrationDeadline: text ? 0.78 : 0.66,
+        weightClasses: 0.68,
+        feeRules: 0.73,
+        attachments: 0.8
+      };
+      if (text && text.includes("新北")) {
+        data.name = "2026 年新北議長盃全國跆拳道錦標賽";
+      }
+      return data;
+    }
+
+    function getExtractionWarnings(data) {
+      const confidence = data.extractionConfidence || {};
+      const checks = [
+        ["比賽名稱", data.name, confidence.name],
+        ["比賽日期", data.date, confidence.date],
+        ["比賽地點", data.location, confidence.location],
+        ["報名截止", data.registrationDeadline, confidence.registrationDeadline],
+        ["對練量級", data.weightClasses?.length, confidence.weightClasses],
+        ["收費標準", data.feeRules?.length, confidence.feeRules],
+        ["附件需求", data.attachments?.length, confidence.attachments]
+      ];
+      return checks
+        .filter(([, value, score]) => !value || Number(score ?? 1) < 0.8)
+        .map(([label, value, score]) => `${label}${value ? ` 信心 ${Math.round(Number(score || 0) * 100)}%` : " 缺少資料"}，建立活動前請人工確認`);
+    }
+
+    function renderExtractionHealth() {
+      const warnings = getExtractionWarnings(parsedData);
+      if (!warnings.length) {
+        return `<div class="field-health good"><strong>解析信心檢查</strong><p class="muted" style="margin:6px 0 0;">主要欄位看起來完整，仍建議送出前快速核對。</p></div>`;
+      }
+      return `
+        <div class="field-health">
+          <strong>解析信心檢查</strong>
+          <ul>${warnings.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>`;
+    }
+
+    function renderParserForms() {
+      $("#basicTab").innerHTML = `
+        ${renderExtractionHealth()}
+        <div class="grid two">
+          <div><label>比賽名稱</label><input id="fName" value="${escapeHtml(parsedData.name || "")}"></div>
+          <div><label>比賽日期</label><input id="fDate" value="${escapeHtml(parsedData.date || "")}"></div>
+          <div><label>比賽地點</label><input id="fLocation" value="${escapeHtml(parsedData.location || "")}"></div>
+          <div><label>地址</label><input id="fAddress" value="${escapeHtml(parsedData.address || "")}"></div>
+          <div><label>報名截止</label><input id="fDeadline" value="${escapeHtml(parsedData.registrationDeadline || "")}"></div>
+          <div><label>比賽項目，每行一個</label><textarea id="fItems">${escapeHtml(toLines(parsedData.items))}</textarea></div>
+        </div>`;
+      $("#sparringTab").innerHTML = `<label>對練量級 JSON，可直接修改 group / gender / label / min / max</label><textarea id="fWeights" style="min-height:360px;">${escapeHtml(JSON.stringify(parsedData.weightClasses, null, 2))}</textarea>`;
+      $("#poomsaeTab").innerHTML = `<label>品勢組別，每行一個</label><textarea id="fPoomsae" style="min-height:260px;">${escapeHtml(toLines(parsedData.poomsaeGroups))}</textarea>`;
+      $("#speedTab").innerHTML = `<label>競速踢擊組別，每行一個</label><textarea id="fSpeed" style="min-height:260px;">${escapeHtml(toLines(parsedData.speedKickGroups))}</textarea>`;
+      $("#feeTab").innerHTML = `<label>收費標準 JSON，可修改 item / label / amount / match</label><textarea id="fFees" style="min-height:320px;">${escapeHtml(JSON.stringify(parsedData.feeRules, null, 2))}</textarea>`;
+      $("#attachmentTab").innerHTML = `<label>附件需求，每行一個</label><textarea id="fAttachments" style="min-height:260px;">${escapeHtml(toLines(parsedData.attachments))}</textarea>`;
+    }
+
+    function collectParserForms() {
+      parsedData = {
+        ...parsedData,
+        name: $("#fName").value.trim(),
+        date: $("#fDate").value.trim(),
+        location: $("#fLocation").value.trim(),
+        address: $("#fAddress").value.trim(),
+        registrationDeadline: $("#fDeadline").value.trim(),
+        items: parseLines($("#fItems").value),
+        weightClasses: JSON.parse($("#fWeights").value),
+        poomsaeGroups: parseLines($("#fPoomsae").value),
+        speedKickGroups: parseLines($("#fSpeed").value),
+        feeRules: JSON.parse($("#fFees").value),
+        attachments: parseLines($("#fAttachments").value)
+      };
+      return parsedData;
+    }
+
+    function saveEvent(eventData) {
+      const events = getEvents();
+      const event = { ...eventData, id: eventData.id || uid("event"), createdAt: new Date().toISOString() };
+      const index = events.findIndex(item => item.id === event.id);
+      if (index >= 0) events[index] = event;
+      else events.unshift(event);
+      setEvents(events);
+      localStorage.setItem(STORAGE_KEYS.activeEventId, event.id);
+      refreshAll();
+      return event;
+    }
+
+    function refreshParentForm() {
+      const events = getEvents();
+      const active = getActiveEvent();
+      $("#parentEventSelect").innerHTML = events.map(event => `<option value="${escapeHtml(event.id)}" ${event.id === active.id ? "selected" : ""}>${escapeHtml(event.name)}</option>`).join("");
+      $("#parentEventInfo").textContent = `${active.date || ""}｜${active.location || ""}｜截止：${active.registrationDeadline || ""}`;
+      $("#itemSelect").innerHTML = (active.items || []).map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join("");
+      const groups = [...new Set([...(active.weightClasses || []).map(w => w.group), ...(active.poomsaeGroups || []), ...(active.speedKickGroups || [])])];
+      $("#groupSelect").innerHTML = groups.map(group => `<option value="${escapeHtml(group)}">${escapeHtml(group)}</option>`).join("");
+      $("#attachmentChecks").innerHTML = normalizeUploadRequirements(active).map(item => `
+        <div class="upload-item">
+          <strong>${escapeHtml(item)}</strong>
+          <span class="upload-hint">${isPaymentAttachment(item) ? "上傳繳費證明供教練核對，教練確認後才會標記為已繳費。" : "支援照片或 PDF，單檔上限 2MB。"}</span>
+          <input type="file" data-upload-label="${escapeHtml(item)}" accept="image/*,application/pdf">
+        </div>
+      `).join("");
+      updateFeeAndWeight();
+    }
+
+    function getSelectedItems() {
+      return [...$("#itemSelect").selectedOptions].map(option => option.value);
+    }
+
+    function getSuggestedWeightClass(group, gender, weight) {
+      const active = getActiveEvent();
+      if (weight === "" || weight === null || weight === undefined) return "待輸入";
+      const value = Number(weight);
+      if (!group || !gender || Number.isNaN(value)) return "待輸入";
+      const classes = active.weightClasses || [];
+      let found = classes.find(row => row.group === group && row.gender === gender && value >= Number(row.min) && value <= Number(row.max));
+      if (!found) {
+        found = classes.find(row => row.group.includes(group.replace(/[男女]子組/g, "")) && row.gender === gender && value >= Number(row.min) && value <= Number(row.max));
+      }
+      return found ? found.label : "未找到符合量級";
+    }
+
+    function calculateFee(selectedItems, group = $("#groupSelect")?.value || "") {
+      const active = getActiveEvent();
+      const rules = active.feeRules || [];
+      return selectedItems.reduce((sum, item) => {
+        const candidates = rules.filter(rule => rule.item === item);
+        const matched = candidates.find(rule => (rule.match || []).some(keyword => group.includes(keyword) || item.includes(keyword))) || candidates[0];
+        return sum + Number(matched?.amount || 0);
+      }, 0);
+    }
+
+    function updateFeeAndWeight() {
+      const form = $("#registrationForm");
+      const items = getSelectedItems();
+      const suggested = getSuggestedWeightClass(form.group.value, form.gender.value, form.weight.value);
+      const fee = calculateFee(items, form.group.value);
+      $("#suggestedWeightPill").textContent = `量級：${suggested}`;
+      $("#feePill").textContent = `費用：${currency(fee)}`;
+    }
+
+    function renderAttachmentCell(row) {
+      const uploads = row.uploadedAttachments || [];
+      const links = uploads.map(file => `<a href="${encodeURI(file.dataUrl || "")}" target="_blank" rel="noopener">${escapeHtml(file.label)}：${escapeHtml(file.name)}</a>`).join("<br>");
+      const missing = row.missingAttachments?.length ? `<span class="pill red">缺：${escapeHtml(row.missingAttachments.join("、"))}</span>` : `<span class="pill green">已齊全</span>`;
+      return `${links || "<span class='muted'>尚未上傳</span>"}<br>${missing}`;
+    }
+
+    function renderAdmin() {
+      const events = getEvents();
+      const active = getActiveEvent();
+      const rows = getRegistrations().filter(row => row.eventId === active.id);
+      renderPaymentSettingsForm();
+      $("#eventList").innerHTML = events.length ? events.map(event => `
+        <div class="card" style="box-shadow:none;margin-bottom:10px;border-color:${event.id === active.id ? "var(--blue)" : "var(--line)"}">
+          <strong>${escapeHtml(event.name)}</strong>
+          <p class="muted" style="margin:6px 0;">${escapeHtml(event.date)}<br>${escapeHtml(event.location)}</p>
+          <button class="small secondary" data-set-active="${escapeHtml(event.id)}">設為目前活動</button>
+        </div>
+      `).join("") : `<p class="muted">尚未建立活動。</p>`;
+      $("#statTotal").textContent = rows.length;
+      $("#statUnpaid").textContent = rows.filter(row => !row.paid).length;
+      $("#statMissing").textContent = rows.filter(row => (row.missingAttachments || []).length > 0).length;
+      $("#registrationRows").innerHTML = rows.length ? rows.map(row => `
+        <tr>
+          <td><strong>${escapeHtml(row.studentName)}</strong><br><span class="muted">${escapeHtml(row.registrationNumber || row.id)}<br>${escapeHtml(row.parentName)} ${escapeHtml(row.parentPhone)}</span></td>
+          <td>${escapeHtml(row.items.join("、"))}</td>
+          <td>${escapeHtml(row.group)}</td>
+          <td>${escapeHtml(row.suggestedWeightClass)}</td>
+          <td>${currency(row.fee)}</td>
+          <td><span class="pill ${row.paid ? "green" : "red"}">${row.paid ? "已繳費" : "未繳費"}</span></td>
+          <td>${renderAttachmentCell(row)}</td>
+          <td><span class="pill ${row.reviewStatus === "通過" ? "green" : row.reviewStatus === "退件" ? "red" : "orange"}">${escapeHtml(row.reviewStatus)}</span></td>
+          <td>
+            <div class="row">
+              <button class="small secondary" data-toggle-paid="${row.id}">${row.paid ? "改未繳" : "改已繳"}</button>
+              <button class="small secondary" data-edit-reg="${row.id}">編輯</button>
+              <button class="small red" data-delete-reg="${row.id}">刪除</button>
+              <select data-review="${row.id}">
+                <option ${row.reviewStatus === "待教練審核" ? "selected" : ""}>待教練審核</option>
+                <option ${row.reviewStatus === "通過" ? "selected" : ""}>通過</option>
+                <option ${row.reviewStatus === "退件" ? "selected" : ""}>退件</option>
+              </select>
+            </div>
+          </td>
+        </tr>
+      `).join("") : `<tr><td colspan="9">尚無報名資料。</td></tr>`;
+    }
+
+    function refreshAll() {
+      if (!getEvents().length) saveEvent(structuredClone(demoParsedData));
+      renderParserForms();
+      refreshParentForm();
+      renderAdmin();
+      renderCoachAccess();
+    }
+
+    function showView(viewId) {
+      $$(".view-switch").forEach(btn => btn.classList.toggle("active", btn.dataset.view === viewId));
+      $$(".view").forEach(view => view.classList.remove("active"));
+      $("#" + viewId).classList.add("active");
+      const menu = $(".coach-menu");
+      if (menu) menu.open = false;
+    }
+
+    function validateRegistrationForm(form, selectedItems) {
+      if (!form.reportValidity()) return false;
+      if (!selectedItems.length) {
+        alert("請至少選擇一個報名項目。");
+        $("#itemSelect").focus();
+        return false;
+      }
+      const phone = form.parentPhone.value.trim().replace(/\s|-/g, "");
+      if (!/^09\d{8}$/.test(phone)) {
+        alert("家長電話需為 09 開頭共 10 碼手機號碼。");
+        form.parentPhone.focus();
+        return false;
+      }
+      if (selectedItems.includes("對練") && (!form.weight.value || Number(form.weight.value) <= 0)) {
+        alert("報名對練需輸入正確體重。");
+        form.weight.focus();
+        return false;
+      }
+      return true;
+    }
+
+    function buildRegistrationSummary(row) {
+      return [
+        `活動：${row.eventName}`,
+        `學生：${row.studentName}`,
+        `項目：${row.items.join("、") || "未選擇"}`,
+        `組別：${row.group}`,
+        `建議量級：${row.suggestedWeightClass}`,
+        `應繳費用：${currency(row.fee)}`,
+        `家長電話：${row.parentPhone}`,
+        `已上傳附件：${row.uploadedAttachments.length ? row.uploadedAttachments.map(file => file.label).join("、") : "尚未上傳"}`,
+        `缺漏附件：${row.missingAttachments.length ? row.missingAttachments.join("、") : "無"}`
+      ].join("\n");
+    }
+
+    function resetEditMode() {
+      editingRegistrationId = null;
+      $("#registrationForm button[type='submit']").textContent = "送出報名";
+    }
+
+    function startEditRegistration(id) {
+      const row = getRegistrations().find(item => item.id === id);
+      if (!row) return;
+      localStorage.setItem(STORAGE_KEYS.activeEventId, row.eventId);
+      showView("parentView");
+      refreshParentForm();
+      const form = $("#registrationForm");
+      editingRegistrationId = row.id;
+      form.studentName.value = row.studentName || "";
+      form.gender.value = row.gender || "男";
+      form.birthday.value = row.birthday || "";
+      form.school.value = row.school || "";
+      form.grade.value = row.grade || "幼兒園";
+      form.belt.value = row.belt || "";
+      [...$("#itemSelect").options].forEach(option => option.selected = (row.items || []).includes(option.value));
+      form.group.value = row.group || "";
+      form.weight.value = row.weight || "";
+      form.parentName.value = row.parentName || "";
+      form.parentPhone.value = row.parentPhone || "";
+      form.consent.checked = Boolean(row.consent);
+      $("#registrationForm button[type='submit']").textContent = "更新報名";
+      $("#successPanel").className = "card edit-banner";
+      $("#successPanel").innerHTML = `<h2>正在編輯報名</h2><p>報名編號：${escapeHtml(row.registrationNumber || row.id)}</p><p class="muted">附件無法自動放回檔案欄位；若未重新上傳，系統會保留原本附件。</p>`;
+      updateFeeAndWeight();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function submitRegistration(event) {
+      event.preventDefault();
+      const active = getActiveEvent();
+      const form = event.currentTarget;
+      const selectedItems = getSelectedItems();
+      if (!validateRegistrationForm(form, selectedItems)) return;
+      const requiredAttachments = normalizeUploadRequirements(active);
+      const existingRow = editingRegistrationId ? getRegistrations().find(row => row.id === editingRegistrationId) : null;
+      let uploadedAttachments = [];
+      try {
+        uploadedAttachments = await collectUploadedAttachments(form, requiredAttachments);
+      } catch (error) {
+        alert(error.message);
+        return;
+      }
+      if (existingRow && !uploadedAttachments.length) {
+        uploadedAttachments = existingRow.uploadedAttachments || [];
+      }
+      const uploadedLabels = uploadedAttachments.map(file => file.label);
+      const missingAttachments = requiredAttachments.filter(item => !uploadedLabels.includes(item));
+      const row = {
+        id: existingRow?.id || uid("reg"),
+        registrationNumber: existingRow?.registrationNumber || createRegistrationNumber(),
+        eventId: active.id,
+        eventName: active.name,
+        studentName: form.studentName.value.trim(),
+        gender: form.gender.value,
+        birthday: form.birthday.value,
+        school: form.school.value.trim(),
+        grade: form.grade.value,
+        belt: form.belt.value.trim(),
+        items: selectedItems,
+        group: form.group.value,
+        weight: Number(form.weight.value || 0),
+        parentName: form.parentName.value.trim(),
+        parentPhone: form.parentPhone.value.trim(),
+        checkedAttachments: uploadedLabels,
+        uploadedAttachments,
+        missingAttachments,
+        consent: form.consent.checked,
+        suggestedWeightClass: getSuggestedWeightClass(form.group.value, form.gender.value, form.weight.value),
+        fee: calculateFee(selectedItems, form.group.value),
+        paid: existingRow?.paid || false,
+        reviewStatus: existingRow?.reviewStatus || "待教練審核",
+        createdAt: existingRow?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      if (!confirm(`送出前請確認資料：\n\n${buildRegistrationSummary(row)}\n\n確認送出？`)) return;
+      const rows = getRegistrations();
+      if (existingRow) {
+        const index = rows.findIndex(item => item.id === row.id);
+        rows[index] = row;
+      } else {
+        rows.unshift(row);
+      }
+      try {
+        setRegistrations(rows);
+      } catch (error) {
+        const quota = error && (error.name === "QuotaExceededError" || /quota/i.test(error.message || ""));
+        alert(quota
+          ? "瀏覽器儲存空間已滿，這份報名沒有存檔。\n\n附件以 base64 暫存在本機 localStorage，容量約只有 5MB。請先壓縮或減少附件，或匯出 CSV 後清理舊資料再試。\n（正式版需改接雲端檔案儲存。）"
+          : "報名儲存失敗：" + (error.message || error));
+        return;
+      }
+      $("#successPanel").classList.remove("hidden");
+      $("#successPanel").classList.remove("edit-banner");
+      $("#successPanel").classList.add("result-panel");
+      $("#successPanel").innerHTML = `
+        <h2>${existingRow ? "報名已更新" : "報名成功"}</h2>
+        <p><strong>報名編號：</strong>${escapeHtml(row.registrationNumber)}</p>
+        <p><strong>學生姓名：</strong>${escapeHtml(row.studentName)}</p>
+        <p><strong>報名項目：</strong>${escapeHtml(row.items.join("、") || "未選擇")}</p>
+        <p><strong>建議量級：</strong>${escapeHtml(row.suggestedWeightClass)}</p>
+        <p><strong>應繳費用：</strong>${currency(row.fee)}</p>
+        <div><strong>繳費方式：</strong>${renderPaymentInfoHtml()}</div>
+        <p><strong>已上傳：</strong>${escapeHtml(row.uploadedAttachments.length ? row.uploadedAttachments.map(file => file.label).join("、") : "尚未上傳附件")}</p>
+        <p><strong>附件狀態：</strong>${escapeHtml(row.missingAttachments.length ? "缺少：" + row.missingAttachments.join("、") : "已齊全")}</p>
+        <p><strong>報名狀態：</strong><span class="pill orange">${escapeHtml(row.reviewStatus)}</span></p>
+      `;
+      renderAdmin();
+      form.reset();
+      resetEditMode();
+      refreshParentForm();
+    }
+
+    function exportCsv() {
+      const active = getActiveEvent();
+      const rows = getRegistrations().filter(row => row.eventId === active.id);
+      const headers = ["報名編號", "學生姓名", "性別", "生日", "學校", "年級", "帶級", "項目", "組別", "體重", "建議量級", "費用", "家長", "電話", "繳費", "已上傳附件", "缺漏附件", "審核"];
+      const csvRows = [headers, ...rows.map(row => [
+        row.registrationNumber || row.id, row.studentName, row.gender, row.birthday, row.school, row.grade, row.belt, row.items.join(" / "), row.group, row.weight,
+        row.suggestedWeightClass, row.fee, row.parentName, row.parentPhone, row.paid ? "已繳費" : "未繳費",
+        (row.uploadedAttachments || []).map(file => `${file.label}:${file.name}`).join(" / "),
+        (row.missingAttachments || []).join(" / "),
+        row.reviewStatus
+      ])];
+      const csvSafe = (value) => {
+        let text = String(value ?? "");
+        if (/^[=+\-@\t\r]/.test(text)) text = "'" + text; // 防 Excel/Sheets 公式注入
+        return `"${text.replaceAll('"', '""')}"`;
+      };
+      const csv = csvRows.map(cols => cols.map(csvSafe).join(",")).join("\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${active.name}-報名名單.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function generateLineNotice() {
+      const active = getActiveEvent();
+      const row = getRegistrations().find(item => item.eventId === active.id);
+      const name = row?.studentName || "選手";
+      const missing = row?.missingAttachments?.join("、") || "尚未補齊項目";
+      const paymentText = formatPaymentLines().join("\n") || "教練尚未設定匯款帳號或 LINE Pay，請等候教練通知。";
+      const templates = {
+        success: `【報名成功通知】\n${name} 已完成 ${active.name} 線上報名。\n報名狀態：待教練審核\n應繳費用：${currency(row?.fee || 0)}\n${paymentText}\n請留意後續審核與繳費通知。`,
+        unpaid: `【未繳費提醒】\n${name} 報名 ${active.name} 尚未完成繳費。\n應繳費用：${currency(row?.fee || 0)}\n${paymentText}\n請於報名截止日前上傳或繳交繳費證明。\n截止時間：${active.registrationDeadline}`,
+        missing: `【附件缺漏提醒】\n${name} 報名資料尚缺：${missing}\n請補齊後回傳給教練，以免影響報名資格。`,
+        gear: `【比賽裝備提醒】\n${active.name} 比賽將至，請確認道服、護具、電子襪、腰帶、證件與飲水用品已準備完成。\n比賽地點：${active.location}`,
+        weigh: `【過磅提醒】\n${name} 建議量級：${row?.suggestedWeightClass || "待確認"}。\n請依大會時間完成過磅，並注意體重控管與補水安排。`
+      };
+      $("#noticeOutput").value = templates[$("#noticeType").value];
+    }
+
+    document.addEventListener("click", async (event) => {
+      const navBtn = event.target.closest(".view-switch");
+      if (navBtn) {
+        if (["parserView", "adminView"].includes(navBtn.dataset.view) && !isCoachLoggedIn()) {
+          showView("adminView");
+          renderCoachAccess();
+          alert("請先輸入教練密碼。預設密碼為 1234。");
+          return;
+        }
+        showView(navBtn.dataset.view);
+      }
+      const tabBtn = event.target.closest("#resultTabs button");
+      if (tabBtn) {
+        $$("#resultTabs button").forEach(btn => btn.classList.remove("active"));
+        tabBtn.classList.add("active");
+        $$(".tab-panel").forEach(panel => panel.classList.remove("active"));
+        $("#" + tabBtn.dataset.tab).classList.add("active");
+      }
+      if (event.target.id === "parsePdfBtn") {
+        const file = $("#pdfInput").files[0];
+        if (!file) return alert("請先選擇 PDF 檔案。");
+        $("#pdfSummary").textContent = "PDF 文字擷取中...";
+        try {
+          extractedText = await extractPdfText(file);
+          $("#pdfSummary").textContent = extractedText.slice(0, 2500) || "沒有擷取到文字，可能是掃描圖檔 PDF。";
+        } catch (error) {
+          $("#pdfSummary").textContent = error.message;
+        }
+      }
+      if (event.target.id === "mockParseBtn") {
+        parsedData = await parseWithAIProvider(extractedText);
+        renderParserForms();
+        alert("已完成模擬 AI 解析，請確認各 Tab 內容。");
+      }
+      if (event.target.id === "loadDemoBtn") {
+        parsedData = structuredClone(demoParsedData);
+        $("#pdfSummary").textContent = `示範摘要：\n${parsedData.name}\n${parsedData.date}\n${parsedData.location}\n報名截止：${parsedData.registrationDeadline}\n項目：${parsedData.items.join("、")}`;
+        renderParserForms();
+      }
+      if (event.target.id === "createEventBtn") {
+        try {
+          const eventData = collectParserForms();
+          const saved = saveEvent(eventData);
+          alert(`已建立活動：${saved.name}`);
+        } catch (error) {
+          alert("解析結果格式有誤，請檢查 JSON 欄位。\n" + error.message);
+        }
+      }
+      const activeBtn = event.target.closest("[data-set-active]");
+      if (activeBtn) {
+        localStorage.setItem(STORAGE_KEYS.activeEventId, activeBtn.dataset.setActive);
+        refreshAll();
+      }
+      const paidBtn = event.target.closest("[data-toggle-paid]");
+      if (paidBtn) {
+        const rows = getRegistrations();
+        const row = rows.find(item => item.id === paidBtn.dataset.togglePaid);
+        if (row) row.paid = !row.paid;
+        setRegistrations(rows);
+        renderAdmin();
+      }
+      const editBtn = event.target.closest("[data-edit-reg]");
+      if (editBtn) startEditRegistration(editBtn.dataset.editReg);
+      const deleteBtn = event.target.closest("[data-delete-reg]");
+      if (deleteBtn) {
+        const rows = getRegistrations();
+        const row = rows.find(item => item.id === deleteBtn.dataset.deleteReg);
+        if (row && confirm(`確定刪除 ${row.studentName} 的報名資料？`)) {
+          setRegistrations(rows.filter(item => item.id !== row.id));
+          if (editingRegistrationId === row.id) resetEditMode();
+          renderAdmin();
+        }
+      }
+      if (event.target.id === "exportCsvBtn") exportCsv();
+      if (event.target.id === "generateNoticeBtn") generateLineNotice();
+      if (event.target.id === "coachLoginBtn") {
+        if ($("#coachPasswordInput").value === getCoachPassword()) {
+          setCoachLoggedIn(true);
+          $("#coachPasswordInput").value = "";
+        } else {
+          alert("密碼錯誤。");
+        }
+      }
+      if (event.target.id === "coachLogoutBtn") {
+        setCoachLoggedIn(false);
+        showView("parentView");
+      }
+      if (event.target.id === "changeCoachPasswordBtn") {
+        const nextPassword = $("#newCoachPassword").value.trim();
+        if (nextPassword.length < 4) return alert("新密碼至少 4 碼。");
+        localStorage.setItem(STORAGE_KEYS.coachPassword, nextPassword);
+        $("#newCoachPassword").value = "";
+        alert("教練密碼已更新。");
+      }
+      if (event.target.id === "savePaymentSettingsBtn") {
+        setPaymentSettings({
+          bankAccount: $("#paymentBankAccount").value.trim(),
+          linePay: $("#paymentLinePay").value.trim(),
+          note: $("#paymentNote").value.trim()
+        });
+        alert("收款設定已儲存。");
+      }
+    });
+
+    document.addEventListener("change", (event) => {
+      if (event.target.id === "parentEventSelect") {
+        localStorage.setItem(STORAGE_KEYS.activeEventId, event.target.value);
+        refreshAll();
+      }
+      if (event.target.closest("#registrationForm")) updateFeeAndWeight();
+      if (event.target.matches("[data-review]")) {
+        const rows = getRegistrations();
+        const row = rows.find(item => item.id === event.target.dataset.review);
+        if (row) row.reviewStatus = event.target.value;
+        setRegistrations(rows);
+        renderAdmin();
+      }
+    });
+    document.addEventListener("input", (event) => {
+      if (event.target.closest("#registrationForm")) updateFeeAndWeight();
+    });
+    document.addEventListener("reset", (event) => {
+      if (event.target.id === "registrationForm") resetEditMode();
+    });
+    $("#registrationForm").addEventListener("submit", submitRegistration);
+
+    refreshAll();
+  </script>
+</body>
+</html>
