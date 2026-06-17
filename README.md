@@ -2,7 +2,9 @@
 
 跆拳道／武術比賽用的「報名表自動化」工具：上傳競賽規程 PDF，系統解析出量級、組別、收費與附件需求，自動生成家長手機報名表，並提供教練後台審核、CSV 匯出與 LINE 通知文字產生。
 
-**單一 HTML 檔、純前端、零安裝**，用瀏覽器打開 `pdf-smart-registration-mvp.html` 即可使用。
+**單一 HTML 檔、純前端、零安裝**，用瀏覽器打開 `index.html` 即可使用。
+
+🔗 **線上版（GitHub Pages）：** https://shark7763-del.github.io/pdf-smart-registration-mvp/
 
 ---
 
@@ -34,7 +36,7 @@
 
 ## 使用方式
 
-1. 直接用瀏覽器開啟 `pdf-smart-registration-mvp.html`。
+1. 線上版直接點上方網址；或本機用瀏覽器開啟 `index.html`。
 2. 第一次可按家長端的「載入示範資料」或解析端的範例，體驗完整流程。
 3. 進「教練後台」需輸入密碼（預設 `1234`，可在後台修改）。
 
