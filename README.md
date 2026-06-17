@@ -2,9 +2,12 @@
 
 跆拳道／武術比賽用的「報名表自動化」工具：上傳競賽規程 PDF，系統解析出量級、組別、收費與附件需求，自動生成家長手機報名表，並提供教練後台審核、CSV 匯出與 LINE 通知文字產生。
 
-**單一 HTML 檔、純前端、零安裝**，用瀏覽器打開 `index.html` 即可使用。
+**單一 HTML 檔、零安裝**，用瀏覽器打開 `index.html` 即可使用。同一份檔案有兩種模式：
 
-🔗 **線上版（GitHub Pages）：** https://shark7763-del.github.io/pdf-smart-registration-mvp/
+- **本機展示（GitHub Pages / 直接開檔）**：資料存瀏覽器，單機 demo，不連動。
+- **雲端連動（部署到 GAS）**：偵測到 `google.script.run` 自動切換 → 家長手機填、教練後台即時收到，資料進 Google 試算表、附件進 Google 雲端硬碟。部署方式見 **[`部署說明.md`](部署說明.md)**。
+
+🔗 **線上展示版（GitHub Pages）：** https://shark7763-del.github.io/pdf-smart-registration-mvp/
 
 ---
 
@@ -59,9 +62,9 @@
 
 - **Phase 0 — 純前端修補（✅ 已完成 2026-06）**
   報名儲存爆容量不再靜默失敗、全面 XSS 跳脫、繳費改教練手動確認、CSV 公式注入防護、移除死碼與重複事件綁定。通過 jsdom 端到端驗證 11/11。
-- **Phase 1 — 後端化**
-  接 Google Apps Script + Sheets：報名寫雲端、附件改上 Google Drive、教練改後端驗證。解決限制 1、2、4。
-- **Phase 2 — 真 AI 解析**
+- **Phase 1 — 後端化（✅ 已完成 2026-06）**
+  `Code.gs`：Google Apps Script + Sheets，報名逐筆 upsert（多人同送不互蓋）、附件上 Google Drive、教練後端驗證。前端自動偵測 `google.script.run` 切換雲端/本機。通過 jsdom 雙模式驗證（本機 11/11、雲端 9/9）。部署見 `部署說明.md`。解決限制 1、2、4。
+- **Phase 2 — 真 AI 解析（待辦）**
   以 GAS 當代理呼叫 Claude API，把規程文字轉成結構化 JSON，信心分數改為模型真實回傳。解決限制 3。
 
 ---
@@ -70,6 +73,6 @@
 
 - 單檔 HTML / CSS / 原生 JavaScript，無框架、無建置步驟
 - [pdf.js 3.11](https://cdnjs.com/libraries/pdf.js)（CDN）做 PDF 文字擷取
-- 資料層：`localStorage` / `sessionStorage`
+- 資料層：本機模式用 `localStorage`；雲端模式用 GAS + Google Sheets + Google Drive（`Code.gs`）
 
 > 本機另有安全備份 `*.backup-YYYYMMDD.html`（不納入版控）。

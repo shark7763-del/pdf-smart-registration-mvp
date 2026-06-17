@@ -485,6 +485,7 @@
         <div>比賽活動報名<br><span class="muted" style="color:#b8c9d8;">家長報名表</span></div>
       </div>
       <div class="page-badge">比賽活動報名</div>
+      <span id="connStatus" class="pill" style="background:rgba(255,255,255,.12);color:#f7fbfc;border:1px solid rgba(255,255,255,.2);">連線中…</span>
       <details class="coach-menu">
         <summary>教練功能</summary>
         <div class="coach-menu-panel">
@@ -639,7 +640,10 @@
             <div class="card">
               <div class="between">
                 <h2>報名名單</h2>
-                <button id="exportCsvBtn" class="secondary">匯出 CSV</button>
+                <div class="row">
+                  <button id="refreshCloudBtn" class="small secondary">重新整理</button>
+                  <button id="exportCsvBtn" class="secondary">匯出 CSV</button>
+                </div>
               </div>
               <div class="table-wrap">
                 <table>
@@ -722,6 +726,45 @@
 
     const $ = (selector) => document.querySelector(selector);
     const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+    /* ===== Phase 1：雲端後端（GAS）偵測與呼叫 =====
+       被 GAS 服務時（有 google.script.run）→ 走雲端共用資料庫；
+       直接開檔 / GitHub Pages → 自動退回 localStorage 本機展示模式。 */
+    const IS_CLOUD = typeof google !== "undefined" && !!(google.script && google.script.run);
+    function gas(fn, ...args) {
+      return new Promise((resolve, reject) => {
+        google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args);
+      });
+    }
+    function setConn(text, color) {
+      const el = $("#connStatus");
+      if (!el) return;
+      el.textContent = text;
+      const map = { green: "#11946a", red: "#d74444", orange: "#e68a00", blue: "#2f6fdb" };
+      el.style.background = (map[color] || "#64727b");
+      el.style.color = "#fff";
+      el.style.borderColor = "transparent";
+    }
+    async function cloudBootstrap() {
+      const data = await gas("bootstrap");
+      localStorage.setItem(STORAGE_KEYS.events, JSON.stringify(data.events || []));
+      localStorage.setItem(STORAGE_KEYS.registrations, JSON.stringify(data.registrations || []));
+      localStorage.setItem(STORAGE_KEYS.paymentSettings, JSON.stringify(data.paymentSettings || {}));
+      const activeId = localStorage.getItem(STORAGE_KEYS.activeEventId);
+      const stillExists = (data.events || []).some(ev => ev.id === activeId);
+      if (!stillExists && (data.events || []).length) {
+        localStorage.setItem(STORAGE_KEYS.activeEventId, data.events[0].id);
+      }
+      return data;
+    }
+    // 失敗只記錄、不擋使用者（本機快取已先更新，UI 照樣可用）
+    function cloudPush(fn, ...args) {
+      if (!IS_CLOUD) return Promise.resolve();
+      return gas(fn, ...args).catch(err => {
+        console.error("雲端同步失敗", fn, err);
+        setConn("雲端同步異常，請重新整理", "red");
+      });
+    }
 
     function getEvents() {
       return JSON.parse(localStorage.getItem(STORAGE_KEYS.events) || "[]");
@@ -957,6 +1000,7 @@
       else events.unshift(event);
       setEvents(events);
       localStorage.setItem(STORAGE_KEYS.activeEventId, event.id);
+      cloudPush("saveEventRemote", event);
       refreshAll();
       return event;
     }
@@ -1017,7 +1061,7 @@
 
     function renderAttachmentCell(row) {
       const uploads = row.uploadedAttachments || [];
-      const links = uploads.map(file => `<a href="${encodeURI(file.dataUrl || "")}" target="_blank" rel="noopener">${escapeHtml(file.label)}：${escapeHtml(file.name)}</a>`).join("<br>");
+      const links = uploads.map(file => `<a href="${encodeURI(file.url || file.dataUrl || "")}" target="_blank" rel="noopener">${escapeHtml(file.label)}：${escapeHtml(file.name)}</a>`).join("<br>");
       const missing = row.missingAttachments?.length ? `<span class="pill red">缺：${escapeHtml(row.missingAttachments.join("、"))}</span>` : `<span class="pill green">已齊全</span>`;
       return `${links || "<span class='muted'>尚未上傳</span>"}<br>${missing}`;
     }
@@ -1194,6 +1238,24 @@
         updatedAt: new Date().toISOString()
       };
       if (!confirm(`送出前請確認資料：\n\n${buildRegistrationSummary(row)}\n\n確認送出？`)) return;
+      if (IS_CLOUD) {
+        // 雲端模式：送伺服器（附件上 Drive、逐筆 upsert），回傳含 Drive 連結的 row
+        const submitBtn = $("#registrationForm button[type='submit']");
+        const prevLabel = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "上傳中…";
+        try {
+          const res = await gas("submitRegistrationRemote", row);
+          if (res && res.registration) Object.assign(row, res.registration);
+        } catch (error) {
+          alert("雲端送出失敗，請檢查網路後再試。\n" + (error.message || error));
+          submitBtn.disabled = false;
+          submitBtn.textContent = prevLabel;
+          return;
+        }
+        submitBtn.disabled = false;
+        submitBtn.textContent = prevLabel;
+      }
       const rows = getRegistrations();
       if (existingRow) {
         const index = rows.findIndex(item => item.id === row.id);
@@ -1330,8 +1392,11 @@
       if (paidBtn) {
         const rows = getRegistrations();
         const row = rows.find(item => item.id === paidBtn.dataset.togglePaid);
-        if (row) row.paid = !row.paid;
-        setRegistrations(rows);
+        if (row) {
+          row.paid = !row.paid;
+          setRegistrations(rows);
+          cloudPush("patchRegistrationRemote", row.id, { paid: row.paid });
+        }
         renderAdmin();
       }
       const editBtn = event.target.closest("[data-edit-reg]");
@@ -1342,16 +1407,31 @@
         const row = rows.find(item => item.id === deleteBtn.dataset.deleteReg);
         if (row && confirm(`確定刪除 ${row.studentName} 的報名資料？`)) {
           setRegistrations(rows.filter(item => item.id !== row.id));
+          cloudPush("deleteRegistrationRemote", row.id);
           if (editingRegistrationId === row.id) resetEditMode();
           renderAdmin();
         }
       }
+      if (event.target.id === "refreshCloudBtn") {
+        if (!IS_CLOUD) return alert("本機展示模式無雲端資料可同步。");
+        setConn("重新整理中…", "blue");
+        try { await cloudBootstrap(); refreshAll(); setConn("已連雲端", "green"); }
+        catch (err) { setConn("雲端連線失敗", "red"); alert("讀取雲端資料失敗：" + (err.message || err)); }
+      }
       if (event.target.id === "exportCsvBtn") exportCsv();
       if (event.target.id === "generateNoticeBtn") generateLineNotice();
       if (event.target.id === "coachLoginBtn") {
-        if ($("#coachPasswordInput").value === getCoachPassword()) {
+        const pw = $("#coachPasswordInput").value;
+        let okPw;
+        if (IS_CLOUD) {
+          try { okPw = (await gas("coachLoginRemote", pw)).ok; } catch (e) { okPw = false; }
+        } else {
+          okPw = pw === getCoachPassword();
+        }
+        if (okPw) {
           setCoachLoggedIn(true);
           $("#coachPasswordInput").value = "";
+          if (IS_CLOUD) { try { await cloudBootstrap(); refreshAll(); } catch (e) {} }
         } else {
           alert("密碼錯誤。");
         }
@@ -1363,16 +1443,23 @@
       if (event.target.id === "changeCoachPasswordBtn") {
         const nextPassword = $("#newCoachPassword").value.trim();
         if (nextPassword.length < 4) return alert("新密碼至少 4 碼。");
-        localStorage.setItem(STORAGE_KEYS.coachPassword, nextPassword);
+        if (IS_CLOUD) {
+          const res = await gas("changeCoachPasswordRemote", nextPassword).catch(() => ({ ok: false }));
+          if (!res.ok) return alert("密碼更新失敗，請稍後再試。");
+        } else {
+          localStorage.setItem(STORAGE_KEYS.coachPassword, nextPassword);
+        }
         $("#newCoachPassword").value = "";
         alert("教練密碼已更新。");
       }
       if (event.target.id === "savePaymentSettingsBtn") {
-        setPaymentSettings({
+        const settings = {
           bankAccount: $("#paymentBankAccount").value.trim(),
           linePay: $("#paymentLinePay").value.trim(),
           note: $("#paymentNote").value.trim()
-        });
+        };
+        setPaymentSettings(settings);
+        cloudPush("savePaymentSettingsRemote", settings);
         alert("收款設定已儲存。");
       }
     });
@@ -1386,8 +1473,11 @@
       if (event.target.matches("[data-review]")) {
         const rows = getRegistrations();
         const row = rows.find(item => item.id === event.target.dataset.review);
-        if (row) row.reviewStatus = event.target.value;
-        setRegistrations(rows);
+        if (row) {
+          row.reviewStatus = event.target.value;
+          setRegistrations(rows);
+          cloudPush("patchRegistrationRemote", row.id, { reviewStatus: row.reviewStatus });
+        }
         renderAdmin();
       }
     });
@@ -1399,7 +1489,22 @@
     });
     $("#registrationForm").addEventListener("submit", submitRegistration);
 
-    refreshAll();
+    async function init() {
+      if (IS_CLOUD) {
+        setConn("雲端連線中…", "blue");
+        try {
+          await cloudBootstrap();
+          setConn("已連雲端", "green");
+        } catch (err) {
+          console.error(err);
+          setConn("雲端連線失敗，暫用本機", "red");
+        }
+      } else {
+        setConn("本機展示模式", "orange");
+      }
+      refreshAll();
+    }
+    init();
   </script>
 </body>
 </html>
